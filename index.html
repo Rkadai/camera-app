@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>PCカメラテスト - 写真部管理</title>
+    <script src="https://unpkg.com/html5-qrcode"></script>
+    <style>
+        body { font-family: sans-serif; text-align: center; padding-top: 50px; }
+        #reader { width: 400px; margin: 0 auto; border: 2px solid #333; }
+        #status { margin-top: 10px; color: red; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+    <h2>📷 写真部QRコードリーダー (PCテスト用)</h2>
+    <div id="reader"></div>
+    <div id="status" id="result">カメラ準備中...</div>
+
+    <script>
+        // 1. スキャナーのインスタンス作成
+        const html5QrCode = new Html5Qrcode("reader");
+
+        // 2. カメラの起動設定
+        const config = { fps: 10, qrbox: { width: 250, height: 250 } };
+
+        // 3. 背面カメラ（または標準カメラ）を開始
+        html5QrCode.start(
+            { facingMode: "environment" }, 
+            config,
+            (decodedText) => {
+                // 成功時
+                document.getElementById('status').innerText = "読み取り成功！: " + decodedText;
+                document.getElementById('status').style.color = "blue";
+                console.log("QR Data:", decodedText);
+            },
+            (errorMessage) => {
+                // 失敗時（スキャン中は無視）
+            }
+        ).catch((err) => {
+            // カメラが起動しなかった場合
+            document.getElementById('status').innerText = "エラー: カメラが見つからないか許可されていません";
+            console.error(err);
+        });
+    </script>
+</body>
+</html>
