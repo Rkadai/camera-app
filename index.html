@@ -59,6 +59,18 @@
       text-align: center;
     }
     #qr-box p { color: #111; font-weight: bold; margin-bottom: 12px; }
+    #qr-print {
+      margin-top: 12px;
+      padding: 6px 20px;
+      background: #FF7A00;
+      color: #111;
+      border: none;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: bold;
+      cursor: pointer;
+      margin-right: 8px;
+    }
     #qr-close {
       margin-top: 12px;
       padding: 6px 20px;
@@ -106,21 +118,32 @@
       font-size: 14px;
       text-align: center;
     }
+    .admin-link {
+      display: inline-block;
+      margin-bottom: 8px;
+      padding: 6px 14px;
+      background: #1a1a1a;
+      color: #888;
+      border: 1px solid #2a2a2a;
+      border-radius: 6px;
+      font-size: 12px;
+      text-decoration: none;
+    }
+    @media print {
+      body * { visibility: hidden; }
+      #print-area, #print-area * { visibility: visible; }
+      #print-area {
+        position: fixed;
+        top: 50%; left: 50%;
+        transform: translate(-50%, -50%);
+        text-align: center;
+      }
+    }
   </style>
 </head>
 <body>
   <h1>CAMERA POOL</h1>
-  <a href="admin.html" style="
-    display: inline-block;
-    margin-bottom: 8px;
-    padding: 6px 14px;
-    background: #1a1a1a;
-    color: #888;
-    border: 1px solid #2a2a2a;
-    border-radius: 6px;
-    font-size: 12px;
-    text-decoration: none;
-  ">📊 管理画面</a>
+  <a class="admin-link" href="admin.html">📊 管理画面</a>
   <button class="scan-btn" onclick="openScan()">📷 QRをスキャンして借りる／返す</button>
   <div id="camera-list">読み込み中...</div>
 
@@ -128,7 +151,12 @@
     <div id="qr-box">
       <p id="qr-name"></p>
       <div id="qr-canvas"></div>
+      <div id="print-area" style="display:none">
+        <div id="print-canvas"></div>
+        <p id="print-name" style="color:#111;font-weight:bold;margin-top:8px"></p>
+      </div>
       <br>
+      <button id="qr-print" onclick="printQR()">🖨️ 印刷</button>
       <button id="qr-close" onclick="closeQR()">閉じる</button>
     </div>
   </div>
@@ -147,13 +175,31 @@
     const db = createClient(SUPABASE_URL, SUPABASE_KEY)
 
     let html5QrCode = null
+    let currentQRId = null
+    let currentQRName = null
 
     function showQR(cameraId, cameraName) {
+      currentQRId = cameraId
+      currentQRName = cameraName
       document.getElementById('qr-name').textContent = cameraName
       const canvas = document.getElementById('qr-canvas')
       canvas.innerHTML = ''
       new QRCode(canvas, { text: cameraId, width: 200, height: 200 })
       document.getElementById('qr-modal').classList.add('show')
+    }
+
+    function printQR() {
+      const printArea = document.getElementById('print-area')
+      const printCanvas = document.getElementById('print-canvas')
+      const printName = document.getElementById('print-name')
+      printCanvas.innerHTML = ''
+      printName.textContent = currentQRName
+      new QRCode(printCanvas, { text: currentQRId, width: 300, height: 300 })
+      printArea.style.display = 'block'
+      setTimeout(() => {
+        window.print()
+        printArea.style.display = 'none'
+      }, 300)
     }
 
     function closeQR() {
@@ -173,21 +219,15 @@
     function closeScan() {
       if (html5QrCode) {
         try {
-          html5QrCode.stop().catch(() => {}).finally(() => {
-            html5QrCode = null
-          })
-        } catch(e) {
-          html5QrCode = null
-        }
+          html5QrCode.stop().catch(() => {}).finally(() => { html5QrCode = null })
+        } catch(e) { html5QrCode = null }
       }
       document.getElementById('scan-modal').classList.remove('show')
       document.getElementById('scan-result').textContent = ''
     }
 
     async function handleScan(cameraId) {
-      try {
-        await html5QrCode.stop()
-      } catch(e) {}
+      try { await html5QrCode.stop() } catch(e) {}
       html5QrCode = null
 
       const { data: cameras } = await db.from('cameras').select('*').eq('id', cameraId)
