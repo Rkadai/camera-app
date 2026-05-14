@@ -1,46 +1,223 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-    <meta charset="UTF-8">
-    <title>PCカメラテスト - 写真部管理</title>
-    <script src="https://unpkg.com/html5-qrcode"></script>
-    <style>
-        body { font-family: sans-serif; text-align: center; padding-top: 50px; }
-        #reader { width: 400px; margin: 0 auto; border: 2px solid #333; }
-        #status { margin-top: 10px; color: red; font-weight: bold; }
-    </style>
+  <meta charset="UTF-8">
+  <title>カメラ貸出管理</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+  <style>
+    body {
+      font-family: sans-serif;
+      background: #111;
+      color: #eee;
+      padding: 20px;
+    }
+    h1 { font-size: 24px; letter-spacing: 2px; }
+    .camera-card {
+      background: #1a1a1a;
+      border-radius: 10px;
+      padding: 14px 16px;
+      margin-bottom: 10px;
+      border: 1px solid #2a2a2a;
+    }
+    .camera-name { font-size: 16px; font-weight: bold; }
+    .status-ok { color: #4ade80; }
+    .status-ng { color: #f87171; }
+    .qr-btn, .scan-btn {
+      margin-top: 8px;
+      padding: 5px 12px;
+      background: #FF7A00;
+      color: #111;
+      border: none;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    .scan-btn {
+      font-size: 14px;
+      padding: 10px 20px;
+      margin: 16px 0;
+      display: block;
+    }
+    #qr-modal {
+      display: none;
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: rgba(0,0,0,0.8);
+      justify-content: center;
+      align-items: center;
+      z-index: 9999;
+    }
+    #qr-modal.show { display: flex; }
+    #qr-box {
+      background: #fff;
+      padding: 24px;
+      border-radius: 12px;
+      text-align: center;
+    }
+    #qr-box p { color: #111; font-weight: bold; margin-bottom: 12px; }
+    #qr-close {
+      margin-top: 12px;
+      padding: 6px 20px;
+      background: #111;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    #qr-canvas { margin: 0 auto; }
+    #scan-modal {
+      display: none;
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: rgba(0,0,0,0.9);
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      z-index: 9999;
+    }
+    #scan-modal.show { display: flex; }
+    #scan-reader {
+      width: 300px;
+      border: 2px solid #FF7A00;
+      border-radius: 12px;
+      overflow: hidden;
+    }
+    #scan-close {
+      margin-top: 20px;
+      padding: 10px 32px;
+      background: #FF7A00;
+      color: #111;
+      border: none;
+      border-radius: 8px;
+      font-size: 15px;
+      font-weight: bold;
+      cursor: pointer;
+      z-index: 10000;
+      position: relative;
+    }
+    #scan-result {
+      margin-top: 12px;
+      color: #fff;
+      font-size: 14px;
+      text-align: center;
+    }
+  </style>
 </head>
 <body>
+  <h1>CAMERA POOL</h1>
+  <button class="scan-btn" onclick="openScan()">📷 QRをスキャンして借りる／返す</button>
+  <div id="camera-list">読み込み中...</div>
 
-    <h2>📷 写真部QRコードリーダー (PCテスト用)</h2>
-    <div id="reader"></div>
-    <div id="status" id="result">カメラ準備中...</div>
+  <div id="qr-modal">
+    <div id="qr-box">
+      <p id="qr-name"></p>
+      <div id="qr-canvas"></div>
+      <br>
+      <button id="qr-close" onclick="closeQR()">閉じる</button>
+    </div>
+  </div>
 
-    <script>
-        // 1. スキャナーのインスタンス作成
-        const html5QrCode = new Html5Qrcode("reader");
+  <div id="scan-modal">
+    <div id="scan-reader"></div>
+    <div id="scan-result"></div>
+    <button id="scan-close" onclick="closeScan()">閉じる</button>
+  </div>
 
-        // 2. カメラの起動設定
-        const config = { fps: 10, qrbox: { width: 250, height: 250 } };
+  <script>
+    const SUPABASE_URL = 'https://fvsziepnqtthutpsvtjl.supabase.co'
+    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ2c3ppZXBucXR0aHV0cHN2dGpsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc1MTAyMzksImV4cCI6MjA5MzA4NjIzOX0.mjIWmBHp0I-kBYk5UNNmRKzQipMtlDQIRjVRaxP3QUk'
 
-        // 3. 背面カメラ（または標準カメラ）を開始
-        html5QrCode.start(
-            { facingMode: "environment" }, 
-            config,
-            (decodedText) => {
-                // 成功時
-                document.getElementById('status').innerText = "読み取り成功！: " + decodedText;
-                document.getElementById('status').style.color = "blue";
-                console.log("QR Data:", decodedText);
-            },
-            (errorMessage) => {
-                // 失敗時（スキャン中は無視）
-            }
-        ).catch((err) => {
-            // カメラが起動しなかった場合
-            document.getElementById('status').innerText = "エラー: カメラが見つからないか許可されていません";
-            console.error(err);
-        });
-    </script>
+    const { createClient } = supabase
+    const db = createClient(SUPABASE_URL, SUPABASE_KEY)
+
+    let html5QrCode = null
+
+    function showQR(cameraId, cameraName) {
+      document.getElementById('qr-name').textContent = cameraName
+      const canvas = document.getElementById('qr-canvas')
+      canvas.innerHTML = ''
+      new QRCode(canvas, { text: cameraId, width: 200, height: 200 })
+      document.getElementById('qr-modal').classList.add('show')
+    }
+
+    function closeQR() {
+      document.getElementById('qr-modal').classList.remove('show')
+    }
+
+    function openScan() {
+      document.getElementById('scan-modal').classList.add('show')
+      html5QrCode = new Html5Qrcode('scan-reader')
+      html5QrCode.start(
+        { facingMode: 'environment' },
+        { fps: 10, qrbox: 250 },
+        async (decodedText) => { await handleScan(decodedText) }
+      )
+    }
+
+    function closeScan() {
+      if (html5QrCode) {
+        try {
+          html5QrCode.stop().catch(() => {}).finally(() => {
+            html5QrCode = null
+          })
+        } catch(e) {
+          html5QrCode = null
+        }
+      }
+      document.getElementById('scan-modal').classList.remove('show')
+      document.getElementById('scan-result').textContent = ''
+    }
+
+    async function handleScan(cameraId) {
+      try {
+        await html5QrCode.stop()
+      } catch(e) {}
+      html5QrCode = null
+
+      const { data: cameras } = await db.from('cameras').select('*').eq('id', cameraId)
+      if (!cameras || cameras.length === 0) {
+        document.getElementById('scan-result').textContent = '❌ カメラが見つかりません'
+        return
+      }
+      const cam = cameras[0]
+      const result = document.getElementById('scan-result')
+      if (cam.status === 'available') {
+        const name = prompt('あなたの名前を入力してください')
+        if (!name) return
+        await db.from('cameras').update({ status: 'borrowed', borrower: name }).eq('id', cameraId)
+        result.textContent = `✅ ${cam.name} を借りました！`
+      } else {
+        await db.from('cameras').update({ status: 'available', borrower: '' }).eq('id', cameraId)
+        result.textContent = `✅ ${cam.name} を返却しました！`
+      }
+      setTimeout(() => {
+        document.getElementById('scan-modal').classList.remove('show')
+        document.getElementById('scan-result').textContent = ''
+        loadCameras()
+      }, 2000)
+    }
+
+    async function loadCameras() {
+      const { data, error } = await db.from('cameras').select('*')
+      if (error) { console.error(error); return; }
+      const list = document.getElementById('camera-list')
+      list.innerHTML = data.map(cam => `
+        <div class="camera-card">
+          <div class="camera-name">${cam.name}</div>
+          <div class="${cam.status === 'available' ? 'status-ok' : 'status-ng'}">
+            ${cam.status === 'available' ? '● 貸出可能' : '● 貸出中 — ' + cam.borrower}
+          </div>
+          <button class="qr-btn" onclick="showQR('${cam.id}', '${cam.name}')">QRを表示</button>
+        </div>
+      `).join('')
+    }
+
+    loadCameras()
+  </script>
 </body>
 </html>
