@@ -21,7 +21,14 @@
       margin-bottom: 10px;
       border: 1px solid #2a2a2a;
     }
-    .camera-name { font-size: 16px; font-weight: bold; }
+    .camera-name {
+      font-size: 16px;
+      font-weight: bold;
+      cursor: pointer;
+      text-decoration: underline;
+      text-underline-offset: 3px;
+    }
+    .camera-name:hover { color: #FF7A00; }
     .status-ok { color: #4ade80; }
     .status-ng { color: #f87171; }
     .qr-btn, .scan-btn {
@@ -41,7 +48,7 @@
       margin: 16px 0;
       display: block;
     }
-    #qr-modal {
+    #qr-modal, #history-modal {
       display: none;
       position: fixed;
       top: 0; left: 0;
@@ -51,7 +58,7 @@
       align-items: center;
       z-index: 9999;
     }
-    #qr-modal.show { display: flex; }
+    #qr-modal.show, #history-modal.show { display: flex; }
     #qr-box {
       background: #fff;
       padding: 24px;
@@ -71,7 +78,7 @@
       cursor: pointer;
       margin-right: 8px;
     }
-    #qr-close {
+    #qr-close, #history-close {
       margin-top: 12px;
       padding: 6px 20px;
       background: #111;
@@ -81,6 +88,36 @@
       cursor: pointer;
     }
     #qr-canvas { margin: 0 auto; }
+    #history-box {
+      background: #1a1a1a;
+      padding: 24px;
+      border-radius: 12px;
+      width: 90%;
+      max-width: 400px;
+      max-height: 80vh;
+      overflow-y: auto;
+      border: 1px solid #2a2a2a;
+    }
+    #history-box h3 {
+      font-size: 16px;
+      margin-bottom: 16px;
+      color: #eee;
+    }
+    .history-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 0;
+      border-bottom: 1px solid #2a2a2a;
+      font-size: 13px;
+    }
+    .history-row:last-child { border-bottom: none; }
+    .history-borrower { color: #eee; font-weight: 500; }
+    .history-right { text-align: right; }
+    .history-action-borrow { color: #f87171; font-size: 12px; }
+    .history-action-return { color: #4ade80; font-size: 12px; }
+    .history-date { color: #555; font-size: 11px; margin-top: 2px; }
+    .history-empty { color: #555; font-size: 13px; padding: 12px 0; }
     #scan-modal {
       display: none;
       position: fixed;
@@ -161,6 +198,14 @@
     </div>
   </div>
 
+  <div id="history-modal">
+    <div id="history-box">
+      <h3 id="history-title">履歴</h3>
+      <div id="history-content"></div>
+      <button id="history-close" onclick="closeHistory()">閉じる</button>
+    </div>
+  </div>
+
   <div id="scan-modal">
     <div id="scan-reader"></div>
     <div id="scan-result"></div>
@@ -204,6 +249,41 @@
 
     function closeQR() {
       document.getElementById('qr-modal').classList.remove('show')
+    }
+
+    async function showHistory(cameraName) {
+      document.getElementById('history-title').textContent = cameraName + ' の履歴'
+      document.getElementById('history-content').innerHTML = '読み込み中...'
+      document.getElementById('history-modal').classList.add('show')
+
+      const { data, error } = await db.from('history')
+        .select('*')
+        .eq('camera_name', cameraName)
+        .order('created_at', { ascending: false })
+        .limit(20)
+
+      if (error || !data || data.length === 0) {
+        document.getElementById('history-content').innerHTML =
+          '<div class="history-empty">履歴はまだありません</div>'
+        return
+      }
+
+      document.getElementById('history-content').innerHTML = data.map(h => {
+        const date = new Date(h.created_at).toLocaleString('ja-JP')
+        return `
+          <div class="history-row">
+            <div class="history-borrower">${h.borrower}</div>
+            <div class="history-right">
+              <div class="${h.action === '貸出' ? 'history-action-borrow' : 'history-action-return'}">${h.action}</div>
+              <div class="history-date">${date}</div>
+            </div>
+          </div>
+        `
+      }).join('')
+    }
+
+    function closeHistory() {
+      document.getElementById('history-modal').classList.remove('show')
     }
 
     function openScan() {
@@ -262,7 +342,7 @@
       const list = document.getElementById('camera-list')
       list.innerHTML = data.map(cam => `
         <div class="camera-card">
-          <div class="camera-name">${cam.name}</div>
+          <div class="camera-name" onclick="showHistory('${cam.name}')">${cam.name}</div>
           <div class="${cam.status === 'available' ? 'status-ok' : 'status-ng'}">
             ${cam.status === 'available' ? '● 貸出可能' : '● 貸出中 — ' + cam.borrower}
           </div>
