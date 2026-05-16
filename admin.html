@@ -26,11 +26,7 @@
       text-align: center;
       border: 1px solid #2a2a2a;
     }
-    .stat-num {
-      font-size: 36px;
-      font-weight: bold;
-      margin-bottom: 4px;
-    }
+    .stat-num { font-size: 36px; font-weight: bold; margin-bottom: 4px; }
     .stat-label { font-size: 12px; color: #666; }
     .num-borrowed { color: #f87171; }
     .num-available { color: #4ade80; }
@@ -47,7 +43,6 @@
     }
     .lend-name { font-size: 15px; font-weight: bold; }
     .lend-cam { font-size: 12px; color: #888; margin-top: 3px; }
-    .lend-date { font-size: 11px; color: #555; text-align: right; }
     .back-btn {
       display: inline-block;
       margin-bottom: 20px;
@@ -61,6 +56,60 @@
       text-decoration: none;
     }
     .empty { color: #555; font-size: 14px; padding: 16px 0; }
+    .add-form {
+      background: #1a1a1a;
+      border-radius: 10px;
+      padding: 16px;
+      margin-bottom: 24px;
+      border: 1px solid #2a2a2a;
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+    .add-form input {
+      flex: 1;
+      padding: 8px 12px;
+      background: #111;
+      border: 1px solid #2a2a2a;
+      border-radius: 6px;
+      color: #eee;
+      font-size: 14px;
+    }
+    .add-form input::placeholder { color: #555; }
+    .add-btn {
+      padding: 8px 16px;
+      background: #FF7A00;
+      color: #111;
+      border: none;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: bold;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .camera-row {
+      background: #1a1a1a;
+      border-radius: 10px;
+      padding: 14px 16px;
+      margin-bottom: 8px;
+      border: 1px solid #2a2a2a;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .cam-info { flex: 1; }
+    .cam-name { font-size: 15px; font-weight: bold; }
+    .cam-status { font-size: 12px; color: #888; margin-top: 3px; }
+    .delete-btn {
+      padding: 5px 12px;
+      background: transparent;
+      color: #f87171;
+      border: 1px solid #f87171;
+      border-radius: 6px;
+      font-size: 12px;
+      cursor: pointer;
+    }
+    .delete-btn:hover { background: #2a1010; }
   </style>
 </head>
 <body>
@@ -82,6 +131,15 @@
   <h2>貸出中のカメラ</h2>
   <div id="borrowed-list">読み込み中...</div>
 
+  <h2 style="margin-top:24px">カメラを追加</h2>
+  <div class="add-form">
+    <input type="text" id="new-camera-name" placeholder="例: Canon EOS R10">
+    <button class="add-btn" onclick="addCamera()">＋ 追加</button>
+  </div>
+
+  <h2>カメラ一覧 · 管理</h2>
+  <div id="camera-manage-list">読み込み中...</div>
+
   <script>
     const SUPABASE_URL = 'https://fvsziepnqtthutpsvtjl.supabase.co'
     const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ2c3ppZXBucXR0aHV0cHN2dGpsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc1MTAyMzksImV4cCI6MjA5MzA4NjIzOX0.mjIWmBHp0I-kBYk5UNNmRKzQipMtlDQIRjVRaxP3QUk'
@@ -99,26 +157,54 @@
       document.getElementById('count-borrowed').textContent = borrowed.length
       document.getElementById('count-available').textContent = available.length
 
-      const list = document.getElementById('borrowed-list')
+      const borrowedList = document.getElementById('borrowed-list')
       if (borrowed.length === 0) {
-        list.innerHTML = '<div class="empty">現在貸出中のカメラはありません</div>'
-        return
+        borrowedList.innerHTML = '<div class="empty">現在貸出中のカメラはありません</div>'
+      } else {
+        borrowedList.innerHTML = borrowed.map(cam => `
+          <div class="lend-card">
+            <div>
+              <div class="lend-name">${cam.borrower}</div>
+              <div class="lend-cam">${cam.name}</div>
+            </div>
+          </div>
+        `).join('')
       }
 
-      list.innerHTML = borrowed.map(cam => `
-        <div class="lend-card">
-          <div>
-            <div class="lend-name">${cam.borrower}</div>
-            <div class="lend-cam">${cam.name}</div>
+      const manageList = document.getElementById('camera-manage-list')
+      manageList.innerHTML = data.map(cam => `
+        <div class="camera-row">
+          <div class="cam-info">
+            <div class="cam-name">${cam.name}</div>
+            <div class="cam-status">${cam.status === 'available' ? '● 貸出可能' : '● 貸出中 — ' + cam.borrower}</div>
           </div>
-          <div class="lend-date">貸出中</div>
+          <button class="delete-btn" onclick="deleteCamera('${cam.id}', '${cam.name}')">削除</button>
         </div>
       `).join('')
     }
 
-    loadDashboard()
+    async function addCamera() {
+      const input = document.getElementById('new-camera-name')
+      const name = input.value.trim()
+      if (!name) { alert('カメラ名を入力してください'); return; }
 
-    // 30秒ごとに自動更新
+      const { error } = await db.from('cameras').insert({ name: name, status: 'available', borrower: '' })
+      if (error) { console.error(error); alert('追加に失敗しました'); return; }
+
+      input.value = ''
+      loadDashboard()
+    }
+
+    async function deleteCamera(id, name) {
+      if (!confirm(`「${name}」を削除しますか？`)) return
+
+      const { error } = await db.from('cameras').delete().eq('id', id)
+      if (error) { console.error(error); alert('削除に失敗しました'); return; }
+
+      loadDashboard()
+    }
+
+    loadDashboard()
     setInterval(loadDashboard, 30000)
   </script>
 </body>
