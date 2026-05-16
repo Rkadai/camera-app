@@ -421,7 +421,8 @@
       }
 
       document.getElementById('history-content').innerHTML = data.map(h => {
-        const date = new Date(h.created_at).toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' })
+        const d = new Date(new Date(h.created_at).getTime() + 9 * 60 * 60 * 1000)
+const date = `${d.getFullYear()}/${d.getMonth()+1}/${d.getDate()} ${d.getHours()}:${String(d.getMinutes()).padStart(2,'0')}`
         const sdHtml = h.sd_info
           ? `<div class="history-sd">💾 ${h.sd_info}</div>`
           : ''
