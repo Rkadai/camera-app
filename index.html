@@ -421,7 +421,7 @@
       }
 
       document.getElementById('history-content').innerHTML = data.map(h => {
-        const date = new Date(h.created_at).toLocaleString('ja-JP')
+        const date = new Date(h.created_at).toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' })
         const sdHtml = h.sd_info
           ? `<div class="history-sd">💾 ${h.sd_info}</div>`
           : ''
