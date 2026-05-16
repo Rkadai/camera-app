@@ -237,33 +237,6 @@
       }
       const cam = cameras[0]
       const result = document.getElementById('scan-result')
-      if (cam.status === 'available') {
-        const name = prompt('あなたの名前を入力してください')
-        if (!name) return
-        await db.from('cameras').update({ status: 'borrowed', borrower: name }).eq('id', cameraId)
-        result.textContent = `✅ ${cam.name} を借りました！`
-      } else {
-        await db.from('cameras').update({ status: 'available', borrower: '' }).eq('id', cameraId)
-        result.textContent = `✅ ${cam.name} を返却しました！`
-      }
-      setTimeout(() => {
-        document.getElementById('scan-modal').classList.remove('show')
-        document.getElementById('scan-result').textContent = ''
-        loadCameras()
-      }, 2000)
-    }
-
-    async function handleScan(cameraId) {
-      try { await html5QrCode.stop() } catch(e) {}
-      html5QrCode = null
-
-      const { data: cameras } = await db.from('cameras').select('*').eq('id', cameraId)
-      if (!cameras || cameras.length === 0) {
-        document.getElementById('scan-result').textContent = '❌ カメラが見つかりません'
-        return
-      }
-      const cam = cameras[0]
-      const result = document.getElementById('scan-result')
 
       if (cam.status === 'available') {
         const name = prompt('あなたの名前を入力してください')
@@ -283,9 +256,22 @@
       }, 2000)
     }
 
+    async function loadCameras() {
+      const { data, error } = await db.from('cameras').select('*')
+      if (error) { console.error(error); return; }
+      const list = document.getElementById('camera-list')
+      list.innerHTML = data.map(cam => `
+        <div class="camera-card">
+          <div class="camera-name">${cam.name}</div>
+          <div class="${cam.status === 'available' ? 'status-ok' : 'status-ng'}">
+            ${cam.status === 'available' ? '● 貸出可能' : '● 貸出中 — ' + cam.borrower}
+          </div>
+          <button class="qr-btn" onclick="showQR('${cam.id}', '${cam.name}')">QRを表示</button>
+        </div>
+      `).join('')
+    }
+
     loadCameras()
   </script>
-  <h2 style="margin-top:24px">貸出履歴</h2>
-  <div id="history-list">読み込み中...</div>
 </body>
 </html>
