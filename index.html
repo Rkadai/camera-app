@@ -494,9 +494,26 @@ const date = `${d.getFullYear()}/${d.getMonth()+1}/${d.getDate()} ${d.getHours()
 
     async function loadCameras() {
       const list = document.getElementById('camera-list')
-      list.innerHTML = '<div style="color:#555;font-size:13px;padding:12px 0">⏳ 読み込み中...</div>'
+
+      // キャッシュがあれば先に表示
+      const cached = localStorage.getItem('cameras_cache')
+      if (cached) {
+        renderCameras(JSON.parse(cached))
+      } else {
+        list.innerHTML = '<div style="color:#555;font-size:13px;padding:12px 0">⏳ 読み込み中...</div>'
+      }
+
+      // 裏で最新データを取得
       const { data, error } = await db.from('cameras').select('*')
       if (error) { console.error(error); return; }
+
+      // キャッシュを更新
+      localStorage.setItem('cameras_cache', JSON.stringify(data))
+      renderCameras(data)
+    }
+
+    function renderCameras(data) {
+      const list = document.getElementById('camera-list')
       list.innerHTML = data.map(cam => {
         const isOwn = cam.borrower && cam.borrower.includes('自分のSD')
         const sdBadge = cam.status === 'borrowed'
