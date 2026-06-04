@@ -110,6 +110,7 @@
       cursor: pointer;
     }
     .delete-btn:hover { background: #2a1010; }
+    .history-sd { font-size: 11px; color: #60a5fa; margin-top: 3px; }
   </style>
 </head>
 <body>
@@ -139,6 +140,9 @@
 
   <h2>カメラ一覧 · 管理</h2>
   <div id="camera-manage-list">読み込み中...</div>
+
+  <h2 style="margin-top:24px">貸出履歴 · 全件</h2>
+  <div id="history-list">読み込み中...</div>
 
   <script>
     const SUPABASE_URL = 'https://fvsziepnqtthutpsvtjl.supabase.co'
@@ -183,6 +187,35 @@
       `).join('')
     }
 
+    async function loadHistory() {
+      const { data, error } = await db.from('history').select('*').order('created_at', { ascending: false }).limit(50)
+      if (error) { console.error(error); return; }
+
+      const list = document.getElementById('history-list')
+      if (!data || data.length === 0) {
+        list.innerHTML = '<div class="empty">履歴はまだありません</div>'
+        return
+      }
+      list.innerHTML = data.map(h => {
+        const d = new Date(new Date(h.created_at).getTime() + 9 * 60 * 60 * 1000)
+        const date = `${d.getFullYear()}/${d.getMonth()+1}/${d.getDate()} ${d.getHours()}:${String(d.getMinutes()).padStart(2,'0')}`
+        const sdHtml = h.sd_info ? `<div class="history-sd">💾 ${h.sd_info}</div>` : ''
+        return `
+          <div class="lend-card">
+            <div>
+              <div class="lend-name">${h.borrower}</div>
+              <div class="lend-cam">${h.camera_name}</div>
+              ${sdHtml}
+            </div>
+            <div style="text-align:right">
+              <div style="font-size:12px;color:${h.action === '貸出' ? '#f87171' : '#4ade80'}">${h.action}</div>
+              <div style="font-size:11px;color:#555;margin-top:2px">${date}</div>
+            </div>
+          </div>
+        `
+      }).join('')
+    }
+
     async function addCamera() {
       const input = document.getElementById('new-camera-name')
       const name = input.value.trim()
@@ -205,32 +238,6 @@
     }
 
     loadDashboard()
-    async function loadHistory() {
-      const { data, error } = await db.from('history').select('*').order('created_at', { ascending: false }).limit(30)
-      if (error) { console.error(error); return; }
-
-      const list = document.getElementById('history-list')
-      if (data.length === 0) {
-        list.innerHTML = '<div class="empty">履歴はまだありません</div>'
-        return
-      }
-      list.innerHTML = data.map(h => {
-        const date = new Date(h.created_at).toLocaleString('ja-JP')
-        return `
-          <div class="lend-card">
-            <div>
-              <div class="lend-name">${h.borrower}</div>
-              <div class="lend-cam">${h.camera_name}</div>
-            </div>
-            <div style="text-align:right">
-              <div style="font-size:12px;color:${h.action === '貸出' ? '#f87171' : '#4ade80'}">${h.action}</div>
-              <div style="font-size:11px;color:#555;margin-top:2px">${date}</div>
-            </div>
-          </div>
-        `
-      }).join('')
-    }
-
     loadHistory()
     setInterval(loadDashboard, 30000)
   </script>
