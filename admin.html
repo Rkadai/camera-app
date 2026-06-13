@@ -111,38 +111,127 @@
     }
     .delete-btn:hover { background: #2a1010; }
     .history-sd { font-size: 11px; color: #60a5fa; margin-top: 3px; }
+    .logout-btn {
+      float: right;
+      padding: 5px 12px;
+      background: transparent;
+      color: #888;
+      border: 1px solid #2a2a2a;
+      border-radius: 6px;
+      font-size: 12px;
+      cursor: pointer;
+      margin-bottom: 20px;
+    }
+
+    /* ログイン画面 */
+    #login-screen {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 80vh;
+    }
+    #login-box {
+      background: #1a1a1a;
+      border-radius: 12px;
+      padding: 32px 28px;
+      width: 100%;
+      max-width: 340px;
+      border: 1px solid #2a2a2a;
+    }
+    #login-box h2 {
+      font-size: 20px;
+      color: #eee;
+      margin-bottom: 4px;
+      letter-spacing: 2px;
+    }
+    #login-box p {
+      font-size: 12px;
+      color: #666;
+      margin-bottom: 24px;
+    }
+    .login-label { font-size: 13px; color: #aaa; margin-bottom: 6px; }
+    .login-input {
+      width: 100%;
+      padding: 10px 12px;
+      background: #111;
+      border: 1px solid #2a2a2a;
+      border-radius: 8px;
+      color: #eee;
+      font-size: 14px;
+      box-sizing: border-box;
+      margin-bottom: 16px;
+    }
+    .login-input:focus { outline: none; border-color: #FF7A00; }
+    .login-btn {
+      width: 100%;
+      padding: 12px;
+      background: #FF7A00;
+      color: #111;
+      border: none;
+      border-radius: 8px;
+      font-size: 15px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    .login-error {
+      color: #f87171;
+      font-size: 13px;
+      margin-top: 12px;
+      text-align: center;
+    }
+
+    #dashboard { display: none; }
   </style>
 </head>
 <body>
-  <a class="back-btn" href="index.html">← 一覧に戻る</a>
-  <h1>DASHBOARD</h1>
-  <p class="subtitle">貸出状況 · リアルタイム</p>
 
-  <div class="stats">
-    <div class="stat-card">
-      <div class="stat-num num-borrowed" id="count-borrowed">-</div>
-      <div class="stat-label">貸出中</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-num num-available" id="count-available">-</div>
-      <div class="stat-label">貸出可能</div>
+  <!-- ログイン画面 -->
+  <div id="login-screen">
+    <div id="login-box">
+      <h2>DASHBOARD</h2>
+      <p>管理者のみアクセスできます</p>
+      <div class="login-label">メールアドレス</div>
+      <input class="login-input" id="login-email" type="email" placeholder="admin@example.com">
+      <div class="login-label">パスワード</div>
+      <input class="login-input" id="login-password" type="password" placeholder="••••••••">
+      <button class="login-btn" onclick="login()">ログイン</button>
+      <div class="login-error" id="login-error"></div>
     </div>
   </div>
 
-  <h2>貸出中のカメラ</h2>
-  <div id="borrowed-list">読み込み中...</div>
+  <!-- 管理画面 -->
+  <div id="dashboard">
+    <button class="logout-btn" onclick="logout()">ログアウト</button>
+    <a class="back-btn" href="index.html">← 一覧に戻る</a>
+    <h1>DASHBOARD</h1>
+    <p class="subtitle">貸出状況 · リアルタイム</p>
 
-  <h2 style="margin-top:24px">カメラを追加</h2>
-  <div class="add-form">
-    <input type="text" id="new-camera-name" placeholder="例: Canon EOS R10">
-    <button class="add-btn" onclick="addCamera()">＋ 追加</button>
+    <div class="stats">
+      <div class="stat-card">
+        <div class="stat-num num-borrowed" id="count-borrowed">-</div>
+        <div class="stat-label">貸出中</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-num num-available" id="count-available">-</div>
+        <div class="stat-label">貸出可能</div>
+      </div>
+    </div>
+
+    <h2>貸出中のカメラ</h2>
+    <div id="borrowed-list">読み込み中...</div>
+
+    <h2 style="margin-top:24px">カメラを追加</h2>
+    <div class="add-form">
+      <input type="text" id="new-camera-name" placeholder="例: Canon EOS R10">
+      <button class="add-btn" onclick="addCamera()">＋ 追加</button>
+    </div>
+
+    <h2>カメラ一覧 · 管理</h2>
+    <div id="camera-manage-list">読み込み中...</div>
+
+    <h2 style="margin-top:24px">貸出履歴 · 全件</h2>
+    <div id="history-list">読み込み中...</div>
   </div>
-
-  <h2>カメラ一覧 · 管理</h2>
-  <div id="camera-manage-list">読み込み中...</div>
-
-  <h2 style="margin-top:24px">貸出履歴 · 全件</h2>
-  <div id="history-list">読み込み中...</div>
 
   <script>
     const SUPABASE_URL = 'https://fvsziepnqtthutpsvtjl.supabase.co'
@@ -150,6 +239,43 @@
 
     const { createClient } = supabase
     const db = createClient(SUPABASE_URL, SUPABASE_KEY)
+
+    // ログイン
+    async function login() {
+      const email = document.getElementById('login-email').value.trim()
+      const password = document.getElementById('login-password').value
+      const errorEl = document.getElementById('login-error')
+      errorEl.textContent = ''
+
+      const { error } = await db.auth.signInWithPassword({ email, password })
+      if (error) {
+        errorEl.textContent = 'メールアドレスまたはパスワードが違います'
+        return
+      }
+      showDashboard()
+    }
+
+    // ログアウト
+    async function logout() {
+      await db.auth.signOut()
+      document.getElementById('dashboard').style.display = 'none'
+      document.getElementById('login-screen').style.display = 'flex'
+    }
+
+    // ダッシュボードを表示
+    function showDashboard() {
+      document.getElementById('login-screen').style.display = 'none'
+      document.getElementById('dashboard').style.display = 'block'
+      loadDashboard()
+      loadHistory()
+    }
+
+    // ページ読み込み時にセッション確認
+    db.auth.getSession().then(({ data }) => {
+      if (data.session) {
+        showDashboard()
+      }
+    })
 
     async function loadDashboard() {
       const { data, error } = await db.from('cameras').select('*')
@@ -237,8 +363,6 @@
       loadDashboard()
     }
 
-    loadDashboard()
-    loadHistory()
     setInterval(loadDashboard, 30000)
   </script>
 </body>
