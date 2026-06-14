@@ -288,6 +288,40 @@
     }
   </style>
 </head>
+<style>
+    .tab-bar {
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      background: rgba(28,28,30,.95);
+      backdrop-filter: blur(20px);
+      border-top: 0.5px solid #2c2c2e;
+      display: flex;
+      padding: 8px 0 28px;
+      z-index: 50;
+    }
+    .tab-item {
+      flex: 1;
+      text-align: center;
+      font-size: 10px;
+      color: #3a3a3c;
+      letter-spacing: .3px;
+      cursor: pointer;
+      font-family: -apple-system, sans-serif;
+    }
+    .tab-item.on { color: #0a84ff; }
+    .tab-icon { font-size: 22px; display: block; margin-bottom: 2px; }
+    .tab-spacer { height: 80px; }
+  </style>
+
+  <div class="tab-spacer"></div>
+  <div class="tab-bar">
+    <div class="tab-item on">
+      <span class="tab-icon">⊞</span>一覧
+    </div>
+    <div class="tab-item" onclick="openScan()">
+      <span class="tab-icon">⊙</span>スキャン
+    </div>
+  </div>
 <body>
 
   <!-- ナビゲーション -->
