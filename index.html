@@ -2,287 +2,338 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <title>カメラ貸出管理</title>
+  <title>CAMERA POOL</title>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
   <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
-      font-family: sans-serif;
-      background: #111;
-      color: #eee;
-      padding: 20px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;
+      background: #000;
+      color: #fff;
+      min-height: 100vh;
     }
-    h1 { font-size: 24px; letter-spacing: 2px; }
-    .camera-card {
-      background: #1a1a1a;
-      border-radius: 10px;
-      padding: 14px 16px;
-      margin-bottom: 10px;
-      border: 1px solid #2a2a2a;
+
+    /* ナビゲーション */
+    .nav {
+      padding: 20px 20px 16px;
+      background: linear-gradient(180deg, #0a1628 0%, #000 100%);
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      position: relative;
     }
-    .camera-name {
-      font-size: 16px;
-      font-weight: bold;
-      cursor: pointer;
-      text-decoration: underline;
-      text-underline-offset: 3px;
-    }
-    .camera-name:hover { color: #FF7A00; }
-    .status-ok { color: #4ade80; }
-    .status-ng { color: #f87171; }
-    .sd-badge {
-      display: inline-block;
-      font-size: 11px;
-      padding: 2px 8px;
-      border-radius: 10px;
-      margin-left: 8px;
-      font-weight: 500;
-    }
-    .sd-own { background: #1a2a3a; color: #60a5fa; }
-    .sd-camera { background: #2a1a0a; color: #fb923c; }
-    .qr-btn, .scan-btn {
-      margin-top: 8px;
-      padding: 5px 12px;
-      background: #FF7A00;
-      color: #111;
+    .nav-label { font-size: 11px; font-weight: 600; color: #0a84ff; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 3px; }
+    .nav-title { font-size: 26px; font-weight: 700; color: #fff; letter-spacing: -.5px; }
+    .nav-sub { font-size: 12px; color: #8e8e93; margin-top: 3px; }
+    .menu-btn {
+      width: 32px; height: 32px;
+      border-radius: 50%;
+      background: rgba(255,255,255,.08);
       border: none;
-      border-radius: 6px;
-      font-size: 12px;
-      font-weight: bold;
+      color: #8e8e93;
+      font-size: 18px;
       cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+      margin-top: 6px;
+      transition: background .15s;
     }
-    .scan-btn {
+    .menu-btn.active { background: rgba(10,132,255,.2); color: #0a84ff; }
+
+    /* ドロップダウン */
+    .dropdown {
+      display: none;
+      position: absolute;
+      top: 72px; right: 16px;
+      background: #2c2c2e;
+      border-radius: 14px;
+      width: 180px;
+      overflow: hidden;
+      z-index: 100;
+      box-shadow: 0 8px 32px rgba(0,0,0,.6);
+    }
+    .dropdown.show { display: block; }
+    .drop-item {
+      padding: 13px 16px;
       font-size: 14px;
-      padding: 10px 20px;
-      margin: 16px 0;
-      display: block;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      border-bottom: 0.5px solid #3a3a3c;
+      cursor: pointer;
+      text-decoration: none;
     }
-    #qr-modal, #history-modal, #borrow-modal {
+    .drop-item:last-child { border: none; }
+    .drop-item:hover { background: rgba(255,255,255,.06); }
+    .drop-icon { font-size: 16px; }
+
+    /* セクションタイトル */
+    .sec-title {
+      font-size: 11px; font-weight: 600; color: #8e8e93;
+      letter-spacing: .5px; text-transform: uppercase;
+      padding: 14px 20px 8px;
+    }
+
+    /* カメラカード */
+    .card-list { padding: 0 16px; display: flex; flex-direction: column; gap: 1px; }
+    .camera-card {
+      background: #1c1c1e;
+      padding: 14px 16px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      cursor: pointer;
+      transition: background .1s;
+    }
+    .camera-card:first-child { border-radius: 14px 14px 0 0; }
+    .camera-card:last-child { border-radius: 0 0 14px 14px; }
+    .camera-card:only-child { border-radius: 14px; }
+    .camera-card:hover { background: #2c2c2e; }
+    .card-divider { height: 0.5px; background: #2c2c2e; margin: 0 16px; }
+    .cam-icon {
+      width: 40px; height: 40px;
+      border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 20px; flex-shrink: 0;
+    }
+    .icon-ok { background: rgba(10,132,255,.15); }
+    .icon-ng { background: rgba(255,59,48,.15); }
+    .cam-info { flex: 1; }
+    .cam-name { font-size: 15px; font-weight: 500; color: #fff; letter-spacing: -.2px; }
+    .cam-status-ok { font-size: 12px; color: #0a84ff; margin-top: 2px; }
+    .cam-status-ng { font-size: 12px; color: #ff3b30; margin-top: 2px; }
+    .cam-sd { font-size: 11px; color: #3a3a3c; margin-top: 2px; }
+    .cam-arrow { font-size: 18px; color: #3a3a3c; }
+
+    /* スキャンボタン */
+    .scan-btn {
+      margin: 20px 16px 8px;
+      background: #0a84ff;
+      border: none;
+      border-radius: 14px;
+      padding: 16px;
+      width: calc(100% - 32px);
+      font-size: 16px;
+      font-weight: 600;
+      color: #fff;
+      cursor: pointer;
+      letter-spacing: -.2px;
+      transition: opacity .15s;
+    }
+    .scan-btn:active { opacity: .8; }
+
+    /* モーダル共通 */
+    .modal {
       display: none;
       position: fixed;
-      top: 0; left: 0;
-      width: 100%; height: 100%;
-      background: rgba(0,0,0,0.85);
+      inset: 0;
+      background: rgba(0,0,0,.7);
+      z-index: 200;
+      align-items: flex-end;
       justify-content: center;
-      align-items: center;
-      z-index: 9999;
     }
-    #qr-modal.show, #history-modal.show, #borrow-modal.show { display: flex; }
+    .modal.show { display: flex; }
+
+    /* QRモーダル */
+    #qr-modal { align-items: center; }
     #qr-box {
-      background: #fff;
+      background: #1c1c1e;
+      border-radius: 20px;
       padding: 24px;
-      border-radius: 12px;
+      width: 90%;
+      max-width: 320px;
       text-align: center;
     }
-    #qr-box p { color: #111; font-weight: bold; margin-bottom: 12px; }
-    #qr-print {
-      margin-top: 12px;
-      padding: 6px 20px;
-      background: #FF7A00;
-      color: #111;
-      border: none;
-      border-radius: 6px;
-      font-size: 13px;
-      font-weight: bold;
-      cursor: pointer;
-      margin-right: 8px;
-    }
-    #qr-close, #history-close {
-      margin-top: 12px;
-      padding: 6px 20px;
-      background: #111;
-      color: #fff;
-      border: none;
-      border-radius: 6px;
-      cursor: pointer;
-    }
+    #qr-box h3 { font-size: 16px; font-weight: 600; color: #fff; margin-bottom: 16px; }
     #qr-canvas { margin: 0 auto; }
+    #qr-canvas img, #qr-canvas canvas { border-radius: 8px; }
+    .qr-btn-row { display: flex; gap: 10px; margin-top: 16px; }
+    .qr-print-btn {
+      flex: 1; padding: 12px;
+      background: #0a84ff; border: none; border-radius: 12px;
+      font-size: 14px; font-weight: 600; color: #fff; cursor: pointer;
+    }
+    .qr-close-btn {
+      flex: 1; padding: 12px;
+      background: #3a3a3c; border: none; border-radius: 12px;
+      font-size: 14px; font-weight: 600; color: #fff; cursor: pointer;
+    }
 
     /* 貸出モーダル */
+    #borrow-modal { align-items: flex-end; }
     #borrow-box {
-      background: #1a1a1a;
-      padding: 24px;
-      border-radius: 12px;
-      width: 90%;
-      max-width: 360px;
-      border: 1px solid #2a2a2a;
-    }
-    #borrow-box h3 { font-size: 16px; margin-bottom:4px; color: #eee; }
-    #borrow-box .cam-label { font-size: 12px; color: #888; margin-bottom: 20px; }
-    .form-label { font-size: 13px; color: #aaa; margin-bottom: 6px; }
-    .form-input {
+      background: #1c1c1e;
+      border-radius: 20px 20px 0 0;
+      padding: 24px 20px 40px;
       width: 100%;
-      padding: 10px 12px;
-      background: #111;
-      border: 1px solid #2a2a2a;
-      border-radius: 8px;
-      color: #eee;
-      font-size: 14px;
-      box-sizing: border-box;
-      margin-bottom: 16px;
     }
-    .form-input:focus { outline: none; border-color: #FF7A00; }
+    #borrow-box h3 { font-size: 18px; font-weight: 700; color: #fff; margin-bottom: 4px; }
+    .borrow-cam-label { font-size: 13px; color: #8e8e93; margin-bottom: 24px; }
+    .form-label { font-size: 13px; color: #8e8e93; margin-bottom: 8px; }
+    .form-input {
+      width: 100%; padding: 14px 16px;
+      background: #2c2c2e; border: none; border-radius: 12px;
+      color: #fff; font-size: 16px; margin-bottom: 16px;
+      font-family: -apple-system, sans-serif;
+    }
+    .form-input:focus { outline: 2px solid #0a84ff; }
     .checkbox-row {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      margin-bottom: 16px;
-      cursor: pointer;
+      display: flex; align-items: center; gap: 12px;
+      margin-bottom: 16px; cursor: pointer;
     }
-    .checkbox-row input[type="checkbox"] {
-      width: 18px;
-      height: 18px;
-      accent-color: #FF7A00;
-      cursor: pointer;
+    .checkbox-row input { width: 20px; height: 20px; accent-color: #0a84ff; cursor: pointer; }
+    .checkbox-row label { font-size: 15px; color: #fff; cursor: pointer; }
+    #sd-name-area { display: none; margin-bottom: 16px; }
+    .borrow-confirm-btn {
+      width: 100%; padding: 16px;
+      background: #0a84ff; border: none; border-radius: 14px;
+      font-size: 17px; font-weight: 600; color: #fff; cursor: pointer;
+      margin-top: 8px;
     }
-    .checkbox-row label {
-      font-size: 14px;
-      color: #eee;
-      cursor: pointer;
-    }
-    #sd-name-area {
-      display: none;
-      margin-bottom: 16px;
-    }
-    .btn-row-borrow {
-      display: flex;
-      gap: 10px;
-    }
-    .btn-cancel {
-      flex: 1;
-      padding: 10px;
-      background: transparent;
-      color: #888;
-      border: 1px solid #2a2a2a;
-      border-radius: 8px;
-      font-size: 14px;
-      cursor: pointer;
-    }
-    .btn-confirm {
-      flex: 2;
-      padding: 10px;
-      background: #FF7A00;
-      color: #111;
-      border: none;
-      border-radius: 8px;
-      font-size: 14px;
-      font-weight: bold;
-      cursor: pointer;
+    .borrow-cancel-btn {
+      width: 100%; padding: 14px;
+      background: transparent; border: none;
+      font-size: 15px; color: #8e8e93; cursor: pointer; margin-top: 4px;
     }
 
     /* 履歴モーダル */
+    #history-modal { align-items: flex-end; }
     #history-box {
-      background: #1a1a1a;
-      padding: 24px;
-      border-radius: 12px;
-      width: 90%;
-      max-width: 400px;
-      max-height: 80vh;
+      background: #1c1c1e;
+      border-radius: 20px 20px 0 0;
+      padding: 24px 20px 40px;
+      width: 100%;
+      max-height: 75vh;
       overflow-y: auto;
-      border: 1px solid #2a2a2a;
     }
-    #history-box h3 { font-size: 16px; margin-bottom: 16px; color: #eee; }
+    #history-box h3 { font-size: 18px; font-weight: 700; color: #fff; margin-bottom: 16px; }
     .history-row {
-      padding: 10px 0;
-      border-bottom: 1px solid #2a2a2a;
-      font-size: 13px;
+      padding: 12px 0;
+      border-bottom: 0.5px solid #2c2c2e;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
     }
-    .history-row:last-child { border-bottom: none; }
-    .history-top { display: flex; justify-content: space-between; align-items: center; }
-    .history-borrower { color: #eee; font-weight: 500; }
-    .history-action-borrow { color: #f87171; font-size: 12px; }
-    .history-action-return { color: #4ade80; font-size: 12px; }
-    .history-date { color: #555; font-size: 11px; margin-top: 4px; }
-    .history-sd { font-size: 11px; color: #60a5fa; margin-top: 3px; }
-    .history-empty { color: #555; font-size: 13px; padding: 12px 0; }
+    .history-row:last-child { border: none; }
+    .history-borrower { font-size: 14px; font-weight: 500; color: #fff; }
+    .history-sd { font-size: 11px; color: #0a84ff; margin-top: 2px; }
+    .history-action-borrow { font-size: 12px; color: #ff3b30; }
+    .history-action-return { font-size: 12px; color: #0a84ff; }
+    .history-date { font-size: 11px; color: #8e8e93; margin-top: 2px; text-align: right; }
+    .history-close-btn {
+      width: 100%; padding: 14px;
+      background: #2c2c2e; border: none; border-radius: 14px;
+      font-size: 15px; font-weight: 600; color: #fff; cursor: pointer;
+      margin-top: 16px;
+    }
+    .history-empty { font-size: 14px; color: #8e8e93; padding: 20px 0; text-align: center; }
 
+    /* スキャンモーダル */
     #scan-modal {
       display: none;
       position: fixed;
-      top: 0; left: 0;
-      width: 100%; height: 100%;
-      background: rgba(0,0,0,0.9);
+      inset: 0;
+      background: #000;
+      z-index: 200;
       flex-direction: column;
-      justify-content: center;
-      align-items: center;
-      z-index: 9999;
     }
     #scan-modal.show { display: flex; }
+    .scan-header {
+      padding: 56px 20px 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .scan-header h2 { font-size: 20px; font-weight: 700; color: #fff; }
+    .scan-close-btn {
+      padding: 6px 16px;
+      background: #2c2c2e;
+      border: none; border-radius: 20px;
+      font-size: 14px; color: #fff; cursor: pointer;
+    }
     #scan-reader {
-      width: 300px;
-      border: 2px solid #FF7A00;
-      border-radius: 12px;
+      flex: 1;
       overflow: hidden;
     }
-    #scan-close {
-      margin-top: 20px;
-      padding: 10px 32px;
-      background: #FF7A00;
-      color: #111;
-      border: none;
-      border-radius: 8px;
-      font-size: 15px;
-      font-weight: bold;
-      cursor: pointer;
-      z-index: 10000;
-      position: relative;
+    #scan-reader video { width: 100% !important; height: 100% !important; object-fit: cover; }
+    .scan-overlay {
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      width: 220px; height: 220px;
+      border: 2px solid #0a84ff;
+      border-radius: 20px;
+      pointer-events: none;
     }
-    #scan-result {
-      margin-top: 12px;
-      color: #fff;
-      font-size: 14px;
+    .scan-result {
+      padding: 20px;
+      background: #1c1c1e;
+      border-radius: 20px 20px 0 0;
       text-align: center;
+      font-size: 15px;
+      color: #fff;
+      min-height: 60px;
     }
-    .admin-link {
-      display: inline-block;
-      margin-bottom: 8px;
-      padding: 6px 14px;
-      background: #1a1a1a;
-      color: #888;
-      border: 1px solid #2a2a2a;
-      border-radius: 6px;
-      font-size: 12px;
-      text-decoration: none;
-    }
+
+    /* 読み込み */
+    .loading { color: #8e8e93; font-size: 14px; padding: 24px 20px; text-align: center; }
+
     @media print {
       body * { visibility: hidden; }
       #print-area, #print-area * { visibility: visible; }
-      #print-area {
-        position: fixed;
-        top: 50%; left: 50%;
-        transform: translate(-50%, -50%);
-        text-align: center;
-      }
+      #print-area { position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%); text-align: center; }
     }
   </style>
 </head>
 <body>
-  <h1>CAMERA POOL</h1>
-  <a class="admin-link" href="admin.html">📊 管理画面</a>
-  <button class="scan-btn" onclick="openScan()">📷 QRをスキャンして借りる／返す</button>
-  <div id="camera-list">読み込み中...</div>
+
+  <!-- ナビゲーション -->
+  <div class="nav">
+    <div>
+      <div class="nav-label">写真部</div>
+      <div class="nav-title">CAMERA POOL</div>
+      <div class="nav-sub">機材管理システム</div>
+    </div>
+    <button class="menu-btn" id="menu-btn" onclick="toggleMenu()">⋯</button>
+  </div>
+
+  <!-- ドロップダウンメニュー -->
+  <div class="dropdown" id="dropdown">
+    <a class="drop-item" href="admin.html"><span class="drop-icon">📊</span>管理画面を開く</a>
+    <div class="drop-item" onclick="loadCameras();closeMenu()"><span class="drop-icon">🔄</span>一覧を更新する</div>
+  </div>
+
+  <!-- カメラ一覧 -->
+  <div class="sec-title">機材一覧</div>
+  <div id="camera-list" class="card-list"><div class="loading">読み込み中...</div></div>
+
+  <!-- スキャンボタン -->
+  <button class="scan-btn" onclick="openScan()">📷　QRをスキャンして借りる / 返す</button>
 
   <!-- QRモーダル -->
-  <div id="qr-modal">
+  <div class="modal" id="qr-modal">
     <div id="qr-box">
-      <p id="qr-name"></p>
+      <h3 id="qr-name"></h3>
       <div id="qr-canvas"></div>
       <div id="print-area" style="display:none">
         <div id="print-canvas"></div>
-        <p id="print-name" style="color:#111;font-weight:bold;margin-top:8px"></p>
+        <p id="print-name" style="color:#000;font-weight:bold;margin-top:8px"></p>
       </div>
-      <br>
-      <button id="qr-print" onclick="printQR()">🖨️ 印刷</button>
-      <button id="qr-close" onclick="closeQR()">閉じる</button>
+      <div class="qr-btn-row">
+        <button class="qr-print-btn" onclick="printQR()">🖨️ 印刷</button>
+        <button class="qr-close-btn" onclick="closeQR()">閉じる</button>
+      </div>
     </div>
   </div>
 
   <!-- 貸出モーダル -->
-  <div id="borrow-modal">
+  <div class="modal" id="borrow-modal">
     <div id="borrow-box">
       <h3>カメラを借りる</h3>
-      <div class="cam-label" id="borrow-cam-label"></div>
+      <div class="borrow-cam-label" id="borrow-cam-label"></div>
       <div class="form-label">あなたの名前</div>
       <input class="form-input" id="borrow-name" type="text" placeholder="例: 山田太郎">
       <div class="checkbox-row">
@@ -290,36 +341,38 @@
         <label for="sd-check">自分のSDカードを持っている</label>
       </div>
       <div id="sd-name-area">
-        <div class="form-label">SDカードの名前・メモ</div>
+        <div class="form-label">SDカードのメモ</div>
         <input class="form-input" id="sd-name" type="text" placeholder="例: SanDisk 64GB">
       </div>
-      <div class="btn-row-borrow">
-        <button class="btn-cancel" onclick="closeBorrow()">キャンセル</button>
-        <button class="btn-confirm" onclick="confirmBorrow()">借りる</button>
-      </div>
+      <button class="borrow-confirm-btn" onclick="confirmBorrow()">借りる</button>
+      <button class="borrow-cancel-btn" onclick="closeBorrow()">キャンセル</button>
     </div>
   </div>
 
   <!-- 履歴モーダル -->
-  <div id="history-modal">
+  <div class="modal" id="history-modal">
     <div id="history-box">
-      <h3 id="history-title">履歴</h3>
+      <h3 id="history-title"></h3>
       <div id="history-content"></div>
-      <button id="history-close" onclick="closeHistory()" style="margin-top:16px">閉じる</button>
+      <button class="history-close-btn" onclick="closeHistory()">閉じる</button>
     </div>
   </div>
 
   <!-- スキャンモーダル -->
   <div id="scan-modal">
-    <div id="scan-reader"></div>
-    <div id="scan-result"></div>
-    <button id="scan-close" onclick="closeScan()">閉じる</button>
+    <div class="scan-header">
+      <h2>QRスキャン</h2>
+      <button class="scan-close-btn" onclick="closeScan()">閉じる</button>
+    </div>
+    <div id="scan-reader" style="position:relative;flex:1">
+      <div class="scan-overlay"></div>
+    </div>
+    <div class="scan-result" id="scan-result">カメラのQRコードを読み取ってください</div>
   </div>
 
   <script>
     const SUPABASE_URL = 'https://fvsziepnqtthutpsvtjl.supabase.co'
     const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ2c3ppZXBucXR0aHV0cHN2dGpsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc1MTAyMzksImV4cCI6MjA5MzA4NjIzOX0.mjIWmBHp0I-kBYk5UNNmRKzQipMtlDQIRjVRaxP3QUk'
-
     const { createClient } = supabase
     const db = createClient(SUPABASE_URL, SUPABASE_KEY)
 
@@ -328,13 +381,70 @@
     let currentQRName = null
     let pendingCam = null
 
-    // SDチェックボックス切り替え
+    // メニュー
+    function toggleMenu() {
+      const dd = document.getElementById('dropdown')
+      const btn = document.getElementById('menu-btn')
+      dd.classList.toggle('show')
+      btn.classList.toggle('active')
+    }
+    function closeMenu() {
+      document.getElementById('dropdown').classList.remove('show')
+      document.getElementById('menu-btn').classList.remove('active')
+    }
+    document.addEventListener('click', e => {
+      if (!e.target.closest('#menu-btn') && !e.target.closest('#dropdown')) closeMenu()
+    })
+
+    // SDチェック
     function toggleSD() {
       const checked = document.getElementById('sd-check').checked
       document.getElementById('sd-name-area').style.display = checked ? 'block' : 'none'
     }
 
-    // 貸出モーダルを開く
+    // QR表示
+    function showQR(cameraId, cameraName) {
+      currentQRId = cameraId; currentQRName = cameraName
+      document.getElementById('qr-name').textContent = cameraName
+      const canvas = document.getElementById('qr-canvas')
+      canvas.innerHTML = ''
+      new QRCode(canvas, { text: cameraId, width: 200, height: 200 })
+      document.getElementById('qr-modal').classList.add('show')
+    }
+    function closeQR() { document.getElementById('qr-modal').classList.remove('show') }
+    function printQR() {
+      const pa = document.getElementById('print-area')
+      const pc = document.getElementById('print-canvas')
+      document.getElementById('print-name').textContent = currentQRName
+      pc.innerHTML = ''
+      new QRCode(pc, { text: currentQRId, width: 300, height: 300 })
+      pa.style.display = 'block'
+      setTimeout(() => { window.print(); pa.style.display = 'none' }, 300)
+    }
+
+    // 履歴
+    async function showHistory(cameraName) {
+      document.getElementById('history-title').textContent = cameraName + ' の履歴'
+      document.getElementById('history-content').innerHTML = '<div class="history-empty">読み込み中...</div>'
+      document.getElementById('history-modal').classList.add('show')
+      const { data } = await db.from('history').select('*').eq('camera_name', cameraName).order('created_at', { ascending: false }).limit(20)
+      if (!data || data.length === 0) {
+        document.getElementById('history-content').innerHTML = '<div class="history-empty">履歴はまだありません</div>'
+        return
+      }
+      document.getElementById('history-content').innerHTML = data.map(h => {
+        const d = new Date(new Date(h.created_at).getTime() + 9 * 60 * 60 * 1000)
+        const date = `${d.getFullYear()}/${d.getMonth()+1}/${d.getDate()} ${d.getHours()}:${String(d.getMinutes()).padStart(2,'0')}`
+        const sdHtml = h.sd_info ? `<div class="history-sd">💾 ${h.sd_info}</div>` : ''
+        return `<div class="history-row">
+          <div><div class="history-borrower">${h.borrower}</div>${sdHtml}</div>
+          <div><div class="${h.action === '貸出' ? 'history-action-borrow' : 'history-action-return'}">${h.action}</div><div class="history-date">${date}</div></div>
+        </div>`
+      }).join('')
+    }
+    function closeHistory() { document.getElementById('history-modal').classList.remove('show') }
+
+    // 貸出モーダル
     function openBorrow(cam) {
       pendingCam = cam
       document.getElementById('borrow-cam-label').textContent = cam.name
@@ -344,194 +454,96 @@
       document.getElementById('sd-name-area').style.display = 'none'
       document.getElementById('borrow-modal').classList.add('show')
     }
-
-    function closeBorrow() {
-      document.getElementById('borrow-modal').classList.remove('show')
-      pendingCam = null
-    }
-
+    function closeBorrow() { document.getElementById('borrow-modal').classList.remove('show'); pendingCam = null }
     async function confirmBorrow() {
       const name = document.getElementById('borrow-name').value.trim()
-      if (!name) { alert('名前を入力してください'); return; }
-
+      if (!name) { alert('名前を入力してください'); return }
       const hasSD = document.getElementById('sd-check').checked
       const sdName = hasSD ? document.getElementById('sd-name').value.trim() : ''
-
       const borrowerText = hasSD && sdName ? `${name}（自分のSD: ${sdName}）` : name
       const sdInfo = hasSD ? (sdName || '自分のSD') : 'カメラのSD'
-
-      await db.from('cameras').update({
-        status: 'borrowed',
-        borrower: borrowerText
-      }).eq('id', pendingCam.id)
-
-      await db.from('history').insert({
-        camera_name: pendingCam.name,
-        borrower: name,
-        action: '貸出',
-        sd_info: sdInfo
-      })
-
+      await db.from('cameras').update({ status: 'borrowed', borrower: borrowerText }).eq('id', pendingCam.id)
+      await db.from('history').insert({ camera_name: pendingCam.name, borrower: name, action: '貸出', sd_info: sdInfo })
       closeBorrow()
       loadCameras()
-    }
-
-    // QR表示
-    function showQR(cameraId, cameraName) {
-      currentQRId = cameraId
-      currentQRName = cameraName
-      document.getElementById('qr-name').textContent = cameraName
-      const canvas = document.getElementById('qr-canvas')
-      canvas.innerHTML = ''
-      new QRCode(canvas, { text: cameraId, width: 200, height: 200 })
-      document.getElementById('qr-modal').classList.add('show')
-    }
-
-    function printQR() {
-      const printArea = document.getElementById('print-area')
-      const printCanvas = document.getElementById('print-canvas')
-      const printName = document.getElementById('print-name')
-      printCanvas.innerHTML = ''
-      printName.textContent = currentQRName
-      new QRCode(printCanvas, { text: currentQRId, width: 300, height: 300 })
-      printArea.style.display = 'block'
-      setTimeout(() => { window.print(); printArea.style.display = 'none' }, 300)
-    }
-
-    function closeQR() {
-      document.getElementById('qr-modal').classList.remove('show')
-    }
-
-    // 履歴表示
-    async function showHistory(cameraName) {
-      document.getElementById('history-title').textContent = cameraName + ' の履歴'
-      document.getElementById('history-content').innerHTML = '読み込み中...'
-      document.getElementById('history-modal').classList.add('show')
-
-      const { data, error } = await db.from('history')
-        .select('*')
-        .eq('camera_name', cameraName)
-        .order('created_at', { ascending: false })
-        .limit(20)
-
-      if (error || !data || data.length === 0) {
-        document.getElementById('history-content').innerHTML =
-          '<div class="history-empty">履歴はまだありません</div>'
-        return
-      }
-
-      document.getElementById('history-content').innerHTML = data.map(h => {
-        const d = new Date(new Date(h.created_at).getTime() + 9 * 60 * 60 * 1000)
-const date = `${d.getFullYear()}/${d.getMonth()+1}/${d.getDate()} ${d.getHours()}:${String(d.getMinutes()).padStart(2,'0')}`
-        const sdHtml = h.sd_info
-          ? `<div class="history-sd">💾 ${h.sd_info}</div>`
-          : ''
-        return `
-          <div class="history-row">
-            <div class="history-top">
-              <div class="history-borrower">${h.borrower}</div>
-              <div class="${h.action === '貸出' ? 'history-action-borrow' : 'history-action-return'}">${h.action}</div>
-            </div>
-            ${sdHtml}
-            <div class="history-date">${date}</div>
-          </div>
-        `
-      }).join('')
-    }
-
-    function closeHistory() {
-      document.getElementById('history-modal').classList.remove('show')
     }
 
     // スキャン
     function openScan() {
       document.getElementById('scan-modal').classList.add('show')
+      document.getElementById('scan-result').textContent = 'カメラのQRコードを読み取ってください'
       html5QrCode = new Html5Qrcode('scan-reader')
-      html5QrCode.start(
-        { facingMode: 'environment' },
-        { fps: 10, qrbox: 250 },
-        async (decodedText) => { await handleScan(decodedText) }
+      html5QrCode.start({ facingMode: 'environment' }, { fps: 10, qrbox: 220 },
+        async decodedText => { await handleScan(decodedText) }
       )
     }
-
     function closeScan() {
       if (html5QrCode) {
-        try {
-          html5QrCode.stop().catch(() => {}).finally(() => { html5QrCode = null })
-        } catch(e) { html5QrCode = null }
+        try { html5QrCode.stop().catch(()=>{}).finally(()=>{ html5QrCode = null }) } catch(e) { html5QrCode = null }
       }
       document.getElementById('scan-modal').classList.remove('show')
-      document.getElementById('scan-result').textContent = ''
     }
-
     async function handleScan(cameraId) {
       try { await html5QrCode.stop() } catch(e) {}
       html5QrCode = null
-
       const { data: cameras } = await db.from('cameras').select('*').eq('id', cameraId)
       if (!cameras || cameras.length === 0) {
         document.getElementById('scan-result').textContent = '❌ カメラが見つかりません'
         return
       }
       const cam = cameras[0]
-
       document.getElementById('scan-modal').classList.remove('show')
-
       if (cam.status === 'available') {
         openBorrow(cam)
       } else {
-        await db.from('cameras').update({ status: 'available', borrower: '' }).eq('id', cameraId)
-        await db.from('history').insert({
-          camera_name: cam.name,
-          borrower: cam.borrower.split('（')[0],
-          action: '返却',
-          sd_info: null
-        })
+        await db.from('cameras').update({ status: 'available', borrower: '' }).eq('id', cam.id)
+        await db.from('history').insert({ camera_name: cam.name, borrower: cam.borrower.split('（')[0], action: '返却', sd_info: null })
         loadCameras()
         alert(`✅ ${cam.name} を返却しました！`)
       }
     }
 
-    async function loadCameras() {
-      const list = document.getElementById('camera-list')
-
-      // キャッシュがあれば先に表示
-      const cached = localStorage.getItem('cameras_cache')
-      if (cached) {
-        renderCameras(JSON.parse(cached))
-      } else {
-        list.innerHTML = '<div style="color:#555;font-size:13px;padding:12px 0">⏳ 読み込み中...</div>'
-      }
-
-      // 裏で最新データを取得
-      const { data, error } = await db.from('cameras').select('*')
-      if (error) { console.error(error); return; }
-
-      // キャッシュを更新
-      localStorage.setItem('cameras_cache', JSON.stringify(data))
-      renderCameras(data)
-    }
-
+    // カメラ一覧
     function renderCameras(data) {
       const list = document.getElementById('camera-list')
-      list.innerHTML = data.map(cam => {
+      if (!data || data.length === 0) {
+        list.innerHTML = '<div class="loading">カメラが登録されていません</div>'
+        return
+      }
+      list.innerHTML = data.map((cam, i) => {
+        const isFirst = i === 0
+        const isLast = i === data.length - 1
+        const isOnly = data.length === 1
+        const radius = isOnly ? '14px' : isFirst ? '14px 14px 0 0' : isLast ? '0 0 14px 14px' : '0'
         const isOwn = cam.borrower && cam.borrower.includes('自分のSD')
-        const sdBadge = cam.status === 'borrowed'
-          ? `<span class="sd-badge ${isOwn ? 'sd-own' : 'sd-camera'}">${isOwn ? '💾 自分のSD' : '📷 カメラのSD'}</span>`
-          : ''
+        const sdText = cam.status === 'borrowed' ? (isOwn ? '💾 自分のSD' : '📷 カメラのSD') : ''
+        const divider = (!isLast && !isOnly) ? `<div class="card-divider"></div>` : ''
         return `
-          <div class="camera-card">
-            <div class="camera-name" onclick="showHistory('${cam.name}')">${cam.name}</div>
-            <div style="margin-top:4px">
-              <span class="${cam.status === 'available' ? 'status-ok' : 'status-ng'}">
-                ${cam.status === 'available' ? '● 貸出可能' : '● 貸出中 — ' + cam.borrower}
-              </span>
-              ${sdBadge}
+          <div class="camera-card" style="border-radius:${radius}" onclick="showHistory('${cam.name}')">
+            <div class="cam-icon ${cam.status === 'available' ? 'icon-ok' : 'icon-ng'}">📷</div>
+            <div class="cam-info">
+              <div class="cam-name">${cam.name}</div>
+              <div class="${cam.status === 'available' ? 'cam-status-ok' : 'cam-status-ng'}">
+                ${cam.status === 'available' ? '貸出可能' : cam.borrower}
+              </div>
+              ${sdText ? `<div class="cam-sd">${sdText}</div>` : ''}
             </div>
-            <button class="qr-btn" onclick="showQR('${cam.id}', '${cam.name}')">QRを表示</button>
-          </div>
+            <div class="cam-arrow">
+              <button onclick="event.stopPropagation();showQR('${cam.id}','${cam.name}')" style="background:none;border:none;color:#0a84ff;font-size:12px;cursor:pointer;padding:4px 0">QR</button>
+              <span style="color:#3a3a3c;margin-left:6px">›</span>
+            </div>
+          </div>${divider}
         `
       }).join('')
+    }
+
+    async function loadCameras() {
+      const cached = localStorage.getItem('cameras_cache')
+      if (cached) renderCameras(JSON.parse(cached))
+      const { data, error } = await db.from('cameras').select('*')
+      if (error) { console.error(error); return }
+      localStorage.setItem('cameras_cache', JSON.stringify(data))
+      renderCameras(data)
     }
 
     loadCameras()
